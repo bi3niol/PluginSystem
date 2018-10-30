@@ -12,10 +12,10 @@ namespace Core
     {
         public string LibraryDirectory { get; private set; }
         private Assembly[] assemblies;
-        public PluginExecutor(string libDir)
+        public PluginExecutor(string libDir, bool loadOnlySigned = false)
         {
             LibraryDirectory = libDir;
-            assemblies = LoadAssemblies(libDir);
+            assemblies = LoadAssemblies(libDir, loadOnlySigned);
         }
 
         public void ExecuteAllPlugins<TPlugin>(Action<TPlugin> Execute, object[] constructorParams) where TPlugin : class
@@ -31,13 +31,19 @@ namespace Core
             }
         }
 
-        private Assembly[] LoadAssemblies(string libDir)
+        private Assembly[] LoadAssemblies(string libDir, bool loadOnlySigned)
         {
             List<Assembly> tmp = new List<Assembly>();
+            byte[] ourPK = Assembly.GetExecutingAssembly().GetName().GetPublicKey();
+
             foreach (var file in Directory.EnumerateFiles(libDir))
             {
                 try
                 {
+                    byte[] targetPK = AssemblyName.GetAssemblyName(file).GetPublicKey();
+                    if (loadOnlySigned && !Enumerable.SequenceEqual(ourPK, targetPK))
+                        continue;
+
                     var assembly = Assembly.LoadFrom(file);
                     tmp.Add(assembly);
                 }
